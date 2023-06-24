@@ -1,0 +1,92 @@
+import pygame, math, random, time
+import pygame_widgets
+from pygame_widgets.slider import Slider
+from pygame_widgets.textbox import TextBox
+from math import exp
+from pygame_widgets.button import Button
+
+colors = [(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) for i in range(150)]
+
+
+class Person:
+    def __init__(self, name, frq, phase):
+        self.name = name
+        self.frq = frq
+        self.phase = phase
+
+
+K = 2
+dt = 1
+
+people = [Person("Person_{}".format(i),
+                 0.25 + 1.75 / 100000 * random.randint(1, 100000),
+                 random.random() * 2*math.pi) for i in range(150)]
+
+size = width, height = 1280, 720
+pygame.init()
+screen = pygame.display.set_mode(size)
+
+pygame.display.set_caption('Kuramoto')
+
+
+def draw_circles():
+    screen.fill((255, 255, 255))
+
+    pygame.draw.circle(screen, (0, 0, 0), (640, 360), 200, width=3)
+
+    for i in range(150):
+        pygame.draw.circle(surface=screen, color=colors[i],center=(-200 * math.cos(people[i].phase) + 640,
+                                                                   200 * math.sin(people[i].phase) + 360), radius=8)
+
+
+def update():
+    for i in range(150):
+        dphi = people[i].frq + \
+               K / 150 * sum([math.sin(people[j].phase - people[i].phase) for j in range(150) if j != i])
+        people[i].phase += dphi * dt / 10
+
+
+clock = pygame.time.Clock()
+K_output = TextBox(screen, 70, 80, 60, 30, fontSize=20)
+K_output.disable()
+dt_output = TextBox(screen, 1100, 80, 60, 30, fontSize=20)
+dt_output.disable()
+k_slider = Slider(screen, 50, 50, 100, 20, min=0.5, max=2.5, step=0.1, initial=K, handleColour=(255, 255, 0))
+dt_slider = Slider(screen, 1100, 50, 100, 20, min=0, max=1, step=0.01, initial=dt, handleColour=(0, 255, 255))
+
+iteration = 0
+run = True
+while run:
+    iteration += 1
+    clock.tick(80)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            run = False
+
+    update()
+    draw_circles()
+
+    #проверка синхронизации
+    exp_phase, exp_frq = [], []
+
+    for i in range(150):
+        exp_phase.append(1 - exp(1 - people[i].phase))
+        exp_frq.append(1 - exp(1 - people[i].frq))
+
+    phase_norm, frq_norm = sum(exp_phase) / 150, sum(exp_frq) / 150
+    #print(phase_norm, frq_norm, sum(exp_phase) / 150, sum(exp_frq) / 150)
+
+    if min(exp_phase) / phase_norm >= 0.9 and min(exp_frq) / frq_norm >= 0.95:
+        print(iteration)
+
+    K_output.setText("K = " + str(round(k_slider.getValue(), 1)))
+    K = round(k_slider.getValue(), 1)
+
+    dt_output.setText("dt = " + str(round(dt_slider.getValue(), 1)))
+    dt = round(dt_slider.getValue(), 1)
+
+    pygame_widgets.update(pygame.event.get())
+
+    pygame.display.flip()
+
+pygame.quit()
